@@ -12,9 +12,10 @@ import argparse
 import csv
 import sqlite3
 import sys
-from pathlib import Path
 
-DB = Path(__file__).with_name("data.db")
+import paths
+
+DB = paths.db_path()
 
 BRIEF = [
     ("id", "ID", 5),

@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 """导入对话框：粘贴或选文件 → 嗅探分隔符 → 字段映射 → 预览 → 入库。"""
 
-import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
 import importer
+import paths
 import store
 from ui_util import center
 
@@ -80,7 +80,7 @@ class ImportDialog(tk.Toplevel):
         path = filedialog.askopenfilename(
             title="选择账号文件",
             filetypes=[("文本文件", "*.txt"), ("所有文件", "*.*")],
-            initialdir=os.path.dirname(os.path.abspath(__file__)),
+            initialdir=str(paths.app_dir()),
         )
         if not path:
             return

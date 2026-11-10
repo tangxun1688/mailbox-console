@@ -7,16 +7,19 @@
 import os
 import queue
 import re
+import sys
 import tempfile
 import threading
 import time
 import tkinter as tk
+import traceback
 import webbrowser
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 from tkinter import messagebox, ttk
 
 import mail
+import paths
 import store
 from export_dialog import ExportDialog
 from import_dialog import ImportDialog
@@ -31,12 +34,46 @@ COL_CHK, COL_IDX, COL_EMAIL, COL_PWD = "#1", "#2", "#3", "#4"
 COL_REC, COL_RECPWD, COL_STATUS, COL_TOKEN, COL_NOTE = "#5", "#6", "#7", "#8", "#9"
 
 
+def log_crash(title: str, exc_type, exc, tb) -> str:
+    """把崩溃写进 exe 旁边的 error.log。
+
+    打包时用 --noconsole，stderr 无处可去；没有这个文件，
+    exe 闪退时用户只能看到"什么都没发生"。
+    """
+    text = "".join(traceback.format_exception(exc_type, exc, tb))
+    stamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    try:
+        path = paths.log_path()
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(f"\n===== {stamp} {title} =====\n{text}")
+        return str(path)
+    except OSError:
+        return ""
+
+
+def _install_excepthook() -> None:
+    """启动阶段的异常（建库失败、Tcl 初始化失败…）也要看得见。"""
+
+    def hook(exc_type, exc, tb):
+        path = log_crash("启动/未捕获异常", exc_type, exc, tb)
+        try:
+            messagebox.showerror(
+                APP_TITLE,
+                f"程序出错：{exc}\n\n" + (f"详情已写入：\n{path}" if path else "日志写入失败"),
+            )
+        except Exception:
+            pass
+
+    sys.excepthook = hook
+
+
 class App(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title(APP_TITLE)
         self.geometry("1120x760")
         self.minsize(960, 620)
+        self._set_icon()
 
         store.init_db()
         self.queue: queue.Queue = queue.Queue()
@@ -60,6 +97,27 @@ class App(tk.Tk):
         self.reload_accounts()
         self.after(100, self._poll_queue)
         self.after(800, self._warn_expiring)
+
+    # ------------------------------------------------------------------ #
+    def _set_icon(self):
+        """窗口/任务栏图标。源码目录和打包后的临时解包目录都找一遍。"""
+        for folder in (paths.app_dir(), paths.resource_dir()):
+            ico = folder / "app.ico"
+            if ico.exists():
+                try:
+                    self.iconbitmap(default=str(ico))
+                    return
+                except tk.TclError:
+                    pass
+
+    def report_callback_exception(self, exc, val, tb):
+        """Tk 回调里的异常默认只打到 stderr，noconsole 打包后等于静默吞掉。"""
+        path = log_crash("界面回调异常", exc, val, tb)
+        detail = f"\n\n日志：{path}" if path else ""
+        try:
+            messagebox.showerror(APP_TITLE, f"操作出错：{val}{detail}", parent=self)
+        except tk.TclError:
+            pass
 
     # ------------------------------------------------------------------ #
     def _setup_style(self):
@@ -795,12 +853,35 @@ class App(tk.Tk):
         if not m.get("html"):
             messagebox.showinfo("没有原文", "这封邮件没有 HTML 部分。", parent=self)
             return
-        folder = os.path.join(tempfile.gettempdir(), "mailbox_gui")
-        os.makedirs(folder, exist_ok=True)
+        folder = os.path.join(paths.data_dir(), "mail_preview")
+        try:
+            os.makedirs(folder, exist_ok=True)
+        except OSError:
+            # exe 旁边和 %APPDATA% 都写不了（比如只读介质）时退回系统临时目录
+            folder = os.path.join(tempfile.gettempdir(), "mailbox_gui")
+            os.makedirs(folder, exist_ok=True)
+        self._prune_preview(folder)
         path = os.path.join(folder, f"mail_{int(time.time())}.html")
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(m["html"])
         webbrowser.open(f"file:///{path.replace(os.sep, '/')}")
+
+    @staticmethod
+    def _prune_preview(folder, keep=20):
+        """预览目录只留最近 20 封，避免越攒越多。"""
+        try:
+            files = sorted(
+                (
+                    os.path.join(folder, n)
+                    for n in os.listdir(folder)
+                    if n.startswith("mail_") and n.endswith(".html")
+                ),
+                key=os.path.getmtime,
+            )
+            for old in files[:-keep]:
+                os.remove(old)
+        except OSError:
+            pass
 
     # ------------------------------------------------------------------ #
     # 导入 / 导出
@@ -830,4 +911,5 @@ class App(tk.Tk):
 
 
 if __name__ == "__main__":
+    _install_excepthook()
     App().mainloop()

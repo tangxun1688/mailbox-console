@@ -3,9 +3,12 @@
 
 import sqlite3
 from datetime import datetime
-from pathlib import Path
 
-DB_PATH = Path(__file__).with_name("data.db")
+import paths
+
+# 注意：不要写成 Path(__file__).with_name("data.db")——打包成 exe 后 __file__
+# 指向临时解包目录，数据库会每次启动重建、退出即删。见 paths.py。
+DB_PATH = paths.db_path()
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS accounts (

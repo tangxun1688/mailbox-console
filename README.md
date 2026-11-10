@@ -1,7 +1,7 @@
 # 邮箱管理工具 · mailbox-gui
 
 > **交接文档**。本文面向接手本项目的 AI Agent / 开发者：先读 §0–§3，再按需要查后面各节。
-> 最后更新：2026-11-10（P0–P3 全部完成，含到期提醒与窗口居中约定）
+> 最后更新：2026-11-11（新增「打包成可运行 exe」能力，细节见 [BUILD.md](BUILD.md)）
 
 ---
 
@@ -9,10 +9,11 @@
 
 | 项 | 值 |
 |---|---|
-| 位置 | `G:\AI_All\WorkBuddyDefaultDirectory\mailbox-gui` |
-| 形态 | Windows 桌面应用，Tkinter + SQLite，**纯标准库，零 pip 依赖** |
-| 入口 | 双击 `start.vbs`（无终端黑框）或 `python app.py` |
-| 代码量 | 10 个 `.py`，约 2 300 行 |
+| 位置 | 源码 `G:\AI_All\WorkBuddyDefaultDirectory\mailbox-gui`；含 git 的开发副本 `G:\AI_All\DSHWork\mailbox-gui` |
+| 形态 | Windows 桌面应用，Tkinter + SQLite，**纯标准库，零 pip 依赖**（打包时才用 PyInstaller） |
+| 入口 | 打包后双击 `邮箱管理工具.exe`；源码方式双击 `start.vbs` 或 `python app.py` |
+| 打包 | `python build.py --both --zip` → `dist\`，详见 **[BUILD.md](BUILD.md)** |
+| 代码量 | 13 个 `.py`，约 2 700 行 |
 | 数据 | `data.db`，当前 **1010 个账号 / 1045 条令牌历史 / 约 4.7 MB** |
 | 状态 | 功能完整可用；无已知阻塞性 bug |
 | 主要风险 | `data.db` 里是**明文密码和令牌**；令牌兑换即轮换，同一账号不能两处同时用 |
@@ -57,6 +58,9 @@ python app.py
 
 首次启动自动建库（`store.init_db()`，含幂等迁移 `_migrate()`）。
 
+已经打包成 exe 的话不用装 Python：双击 `dist\邮箱管理工具\邮箱管理工具.exe`（目录版）
+或 `dist\邮箱管理工具.exe`（单文件版）。重新打包见 **[BUILD.md](BUILD.md)**。
+
 > **重要**：改完代码必须关掉旧窗口再开。Python 进程不会热加载，用户多次因为没重启而以为改动没生效。
 
 ---
@@ -75,7 +79,13 @@ python app.py
 | `sync_dialog.py` | 239 | 令牌同步独立窗口（线程池 + 进度 + 结果表） |
 | `view_db.py` | 110 | 命令行查看数据库、CSV 导出、历史查询 |
 | `ui_util.py` | 49 | `center()` + `CenteredToplevel` 基类 |
-| `start.vbs` | 27 | 无终端启动 |
+| `start.vbs` | 27 | 无终端启动（**源码方式**；打包后直接双击 exe 即可） |
+| `paths.py` | 82 | 冻结感知的路径：exe 目录 / `_MEIPASS` / 数据目录 / `data.db` / `error.log` |
+| `build.py` | 183 | 打包脚本：目录版 / 单文件 / zip，自动准备 `.venv-build` |
+| `build.bat` | 14 | 双击打包 |
+| `verify_exe.py` | 77 | 打包后自检：起窗口 → 查 `data.db` / `error.log` → 关进程 |
+| `tools/make_icon.py` | 116 | 纯标准库生成 `app.ico`（7 个尺寸） |
+| `app.ico` | — | 图标：嵌进 exe 资源，同时作为窗口图标 |
 | `data.db` | — | 运行时数据库（**不要提交 git**） |
 
 ### 分层原则
@@ -315,7 +325,9 @@ python view_db.py --history xxx@hotmail.com   # 令牌变更历史（大小写�
 
 ## 8. 已知限制 / 风险
 
-- `data.db` 明文凭证，**不要提交 git、不要放共享盘**；目前没有 `.gitignore`
+- `data.db` 明文凭证，**不要提交 git、不要放共享盘**（仓库已加 `.gitignore` 忽略它和 `dist/`、`build/`）
+- 单文件 exe 启动要解包到 `%TEMP%`：受限权限或杀软环境下会失败，优先用目录版
+- 未做代码签名，别人首次运行单文件 exe 可能有 SmartScreen 提示
 - 分组功能未做（`group_name` 字段预留）；只有「全部」+ 搜索
 - 正文是纯文本，窗口内不渲染 HTML（「查看原文」交给系统浏览器）
 - 导入按固定分隔符切分，不支持带引号 CSV（密码里含逗号会切错）
@@ -350,6 +362,11 @@ w = app.App(); w.update()
 print(w.title(), w.winfo_width(), w.winfo_height())
 w.destroy()
 "
+
+# 4) 打包 + 打包后自检（会短暂起窗口再关掉）
+$PY build.py --both --zip
+$PY verify_exe.py                       # 目录版
+$PY verify_exe.py 邮箱管理工具.exe      # 单文件版
 ```
 
 **不要**在验证时直接调用真实 `exchange_token`——每次都会轮换令牌，必须把新令牌写回 `data.db`，否则账号断链。确需联网测试时，参考 `store.update_token(...)` 立即落库。
@@ -372,6 +389,7 @@ w.destroy()
 | P2 | 评估连接复用，**未实现** |
 | P3 | 独立令牌同步窗口、过期标色与提醒、90 天到期模型、`source` 区分 |
 | 收尾 | 三个对话框统一居中 + `CenteredToplevel` 基类 |
+| 打包 | PyInstaller 目录版/单文件版、`paths.py` 冻结路径、图标、`error.log`、自检脚本（[BUILD.md](BUILD.md)） |
 
 被明确否决/移除的功能：按条件选菜单、邮件区重复展示邮箱、自动轮询、验证码自动识别。
 
