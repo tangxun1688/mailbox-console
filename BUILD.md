@@ -60,6 +60,8 @@ python build.py --console       # 保留黑色控制台窗口，启动报错直�
 python build.py --name Foo      # 换 exe 名字
 python build.py --no-clean      # 复用 build\ 缓存，第二次打包更快
 python build.py --runtime-tmpdir D:\temp   # 单文件版解包目录（受限环境用，见 §6.1）
+python build.py --both --verify  # 打完后自动起窗口自检，两种产物都过才返回 0
+python build.py --both --verify --verify-timeout 15   # 自检等窗口的秒数（默认 30）
 ```
 
 `build.bat` 只是 `chcp 65001` + `python build.py %*` + 失败 `pause` 的壳，双击即可。
@@ -117,13 +119,15 @@ copy data.db dist\邮箱管理工具\data.db
 
 ## 5. 验证记录（本机实测）
 
-`verify_exe.py` 会启动 exe、60 秒内用 `EnumWindows` 找标题含「邮箱管理工具」的可见窗口、
+`verify_exe.py` 会启动 exe、30 秒内（`--timeout` 可调）用 `EnumWindows` 找标题**完全等于**「邮箱管理工具」的可见窗口（`in` 匹配会被资源管理器窗口误命中）、
 检查 exe 旁边是否生成 `data.db`、是否出现 `error.log`，最后 `taskkill /T /F` 收尾。
 
 ```bash
 python build.py --both --zip
 python verify_exe.py                          # 目录版
 python verify_exe.py 邮箱管理工具.exe         # 单文件版
+python verify_exe.py --timeout 10             # 改等窗口的秒数
+MAILBOX_VERIFY_TEMP=D:\tmp python verify_exe.py   # 指定子进程 TEMP（单文件版解包用）
 ```
 
 实测结果：
@@ -140,6 +144,20 @@ python verify_exe.py 邮箱管理工具.exe         # 单文件版
 
 ---
 
+### 一条命令连打包带自检
+
+```bat
+python build.py --both --verify --zip
+```
+
+目录版和单文件版都会真的启动一次、确认窗口起来、确认 `data.db` 落在 exe 旁边、
+确认没有 `error.log`，然后收掉进程。自检产生的 `data.db` 会被删掉，不会被打进 zip。
+任何一项不过就返回非 0，`build.bat` 会停下来 `pause`。
+
+自检启动单文件版时，`TEMP` 会优先指到仓库内的 `build\tmptest`：DSH 沙箱这类环境里
+`%TEMP%` 允许普通写入，但 bootloader 在里面解包仍会直接弹 `Error`，用仓库内目录更可靠。
+自己机器上想换目录：`set MAILBOX_VERIFY_TEMP=D:\tmp`。
+
 ## 6. 排错清单
 
 ### 6.1 `Error: Could not create temporary directory!`（只影响单文件版）
@@ -152,6 +170,18 @@ python verify_exe.py 邮箱管理工具.exe         # 单文件版
   python build.py --onefile --runtime-tmpdir "D:\mailbox-tmp"
   ```
 - 最省事：改用**目录版**，它完全不解包。
+
+### 6.1b `PermissionError: [WinError 5] ... _internal\libcrypto-3.dll`（重新打包时）
+
+上一次自检/试运行留下的 `邮箱管理工具.exe` 还活着，DLL 被映射进进程，删不掉。
+`build.py` 现在会先 `taskkill` 同名残留进程再动手；`verify_exe.py` 收尾时会确认进程真的退出
+（`taskkill` 之后复查 `poll()`，兜底 `TerminateProcess`），没退干净就报错而不是静默放过。
+
+真遇到了手工收尾：
+
+```bat
+taskkill /IM 邮箱管理工具.exe /T /F
+```
 
 ### 6.2 杀软误报 / 首次启动慢
 PyInstaller 自解压行为常被杀软启发式命中。对策：优先目录版；把 exe 加白名单；

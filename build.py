@@ -6,6 +6,8 @@
     python build.py --onefile        # 单文件 → dist/邮箱管理工具.exe
     python build.py --both --zip     # 目录版 + 单文件，并把目录版打成 zip
     python build.py --console        # 保留控制台，启动报错直接看得见
+    python build.py --both --verify  # 打完自动起窗口自检（失败返回非 0）
+    python build.py --both --verify --verify-timeout 15   # 自检等窗口的秒数
     python build.py --name Foo       # 换名字
 
 排错用开关：
@@ -79,6 +81,17 @@ def _ensure_pyinstaller() -> None:
     os.execv(str(VENV_PY), [str(VENV_PY), str(Path(__file__).resolve()), *sys.argv[1:]])
 
 
+def _kill_stale(name: str = "邮箱管理工具") -> None:
+    """上一轮自检/试运行没退干净的实例会锁住 _internal 里的 dll，先收掉。"""
+    exe = f"{name}.exe"
+    out = subprocess.run(["tasklist", "/FI", f"IMAGENAME eq {exe}", "/FO", "CSV", "/NH"],
+                         capture_output=True, text=True, encoding="mbcs", errors="replace").stdout
+    pids = [line.split('","')[1] for line in out.splitlines() if line.startswith('"')]
+    for pid in pids:
+        print(f"[kill] 收掉残留进程 {exe} pid={pid}")
+        subprocess.run(["taskkill", "/PID", pid, "/T", "/F"], capture_output=True)
+
+
 def _build(onefile: bool, args) -> Path:
     import PyInstaller.__main__ as pyi
 
@@ -134,6 +147,25 @@ def _build(onefile: bool, args) -> Path:
     return target
 
 
+def _verify(target: Path, timeout: int) -> bool:
+    """跑 verify_exe.py：起窗口 → 查 data.db/error.log → 收尾。
+
+    自检会真的建一次 data.db，跑完把它删掉，免得留在 dist 里被打进 zip。
+    """
+    rel = target.relative_to(ROOT / "dist")
+    folder = target.parent
+    before = {p.name for p in folder.glob("*.db*")} | {p.name for p in folder.glob("error.log")}
+    print(f"\n[verify] {rel} …")
+    rc = subprocess.run(
+        [sys.executable, str(ROOT / "verify_exe.py"), str(rel), "--timeout", str(timeout)],
+        cwd=str(ROOT),
+    ).returncode
+    for path in list(folder.glob("*.db*")) + list(folder.glob("error.log")):
+        if path.name not in before:
+            path.unlink(missing_ok=True)
+    return rc == 0
+
+
 def _zip_dir(folder: Path) -> Path:
     out = folder.parent / f"{folder.name}-便携版.zip"
     with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as zf:
@@ -155,6 +187,8 @@ def main() -> int:
     ap.add_argument("--runtime-tmpdir", default=None, help="单文件版解包目录（受限环境用）")
     ap.add_argument("--no-icon", action="store_true", help="不嵌入图标")
     ap.add_argument("--no-clean", action="store_true", help="复用 build 缓存")
+    ap.add_argument("--verify", action="store_true", help="打完后立刻跑 verify_exe.py 自检")
+    ap.add_argument("--verify-timeout", type=int, default=30, help="自检等窗口的秒数，默认 30")
     args = ap.parse_args()
 
     _ensure_pyinstaller()
@@ -162,15 +196,25 @@ def main() -> int:
     want_onefile = args.onefile or args.both
     want_onedir = args.onedir or args.both or not want_onefile
 
+    built: list[Path] = []
+    _kill_stale(args.name)
     if want_onedir:
         # 打包前把上一轮的 data.db / error.log 挪走，避免把用户数据打进 zip
         for leftover in (ROOT / "dist" / args.name).glob("*.db*"):
             leftover.unlink()
-        _build(False, args)
+        built.append(_build(False, args))
         if args.zip:
             _zip_dir(ROOT / "dist" / args.name)
     if want_onefile:
-        _build(True, args)
+        built.append(_build(True, args))
+
+    if args.verify:
+        results = [(t, _verify(t, args.verify_timeout)) for t in built]
+        failed = [t for t, ok in results if not ok]
+        if failed:
+            print("\n[verify] ✗ 自检未通过：" + "、".join(t.name for t in failed))
+            return 1
+        print("\n[verify] ✓ 全部自检通过")
 
     print("\n[build] 分发说明：")
     print("  · 把出厂的 exe（或整个目录）拷给另一台机器，首次运行会在它旁边生成空的 data.db。")
