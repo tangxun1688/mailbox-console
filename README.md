@@ -13,6 +13,7 @@
 | 形态 | Windows 桌面应用，Tkinter + SQLite，**纯标准库，零 pip 依赖**（打包时才用 PyInstaller） |
 | 入口 | 打包后双击 `邮箱管理工具.exe`；源码方式双击 `start.vbs` 或 `python app.py` |
 | 打包 | `python build.py --zip --verify` → `dist\邮箱管理工具-便携版.zip`（打完自动起窗口自检），详见 **[BUILD.md](BUILD.md)** |
+| 仓库 | <https://github.com/tangxun1688/mailbox-console>
 | 下载 | GitHub **Releases** 里的 `邮箱管理工具-便携版.zip`，解压到任意普通目录，双击 `邮箱管理工具.exe` |
 | 代码量 | 14 个 `.py`，约 3 000 行 |
 | 数据 | `data.db`（本地实测约 4.7 MB，**不入版本库**；首次启动自动建空库） |
