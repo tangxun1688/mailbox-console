@@ -138,7 +138,8 @@ MAILBOX_VERIFY_TEMP=D:\tmp python verify_exe.py   # 指定子进程 TEMP（单�
 | 目录版 exe 启动 | ✓ 窗口标题「邮箱管理工具」，生成 28 KB 空库 |
 | 目录版 + 真实 4.7 MB `data.db` | ✓ 正常启动，`accounts = 1010`，无 `error.log` |
 | 单文件版 exe（`%TEMP%` 可用时） | ✓ 窗口正常，`data.db` 落在 exe 旁边（不是 `_MEIxxxx` 里） |
-| 单文件版（当前受限 shell，`%TEMP%` 禁止建目录） | ✗ `Could not create temporary directory!` —— 环境限制，非打包问题；`--runtime-tmpdir` 指到可写目录后 ✓ |
+| 单文件版（产物落在低完整性目录，带 Low 标签） | ✗ `Could not create temporary directory!` —— 低完整性进程建不了解包目录，见 §6.1（b） |
+| 同一份单文件 exe 复制到 `%USERPROFILE%` 下再启动 | ✓ 窗口正常、生成 `data.db`（复制会丢掉 Low 标签） |
 
 图标 / 版本信息也验过：exe 属性里 `产品名称 = 邮箱管理工具`、版本 `0.1.0`，任务栏与窗口左上角都是信封图标。
 
@@ -161,15 +162,33 @@ python build.py --both --verify --zip
 ## 6. 排错清单
 
 ### 6.1 `Error: Could not create temporary directory!`（只影响单文件版）
-单文件版必须能在一个可写目录里建 `_MEIxxxx` 文件夹。触发条件：`%TEMP%` 权限受限、
-被安全软件锁、或低完整性/沙箱令牌。
 
-- 换个位置：`set TEMP=D:\temp` 再运行；
-- 或者重新打包，把解包目录钉死在一个可写路径：
-  ```bash
-  python build.py --onefile --runtime-tmpdir "D:\mailbox-tmp"
-  ```
-- 最省事：改用**目录版**，它完全不解包。
+单文件版启动时必须在可写目录里建一个 `_MEIxxxx` 目录解包；目录版根本不解包。
+实测到两种成因：
+
+**a) 目标目录不可写**（`%TEMP%` 被策略/安全软件限制）。换 `TEMP` 或把解包路径钉死：
+
+```bash
+set TEMP=D:\temp
+python build.py --onefile --runtime-tmpdir "D:\mailbox-tmp"
+```
+
+**b) 产物带 Low 完整性标签**（本项目实际踩到的那个）。如果构建目录本身是低完整性
+（沙箱、受限目录、Windows 沙盒容器），PyInstaller 生成的 exe 会继承
+`Mandatory Label\Low Mandatory Level`。这种 exe 即使从资源管理器双击，进程也只能以低完整性
+运行，bootloader 建解包目录被拒 → 弹这个框。症状是**同一份 exe 换到别处就能跑**。查一下：
+
+```bat
+icacls dist\邮箱管理工具.exe | findstr Mandatory
+```
+
+出现 `Low Mandatory Level` 就是它。两种修法：
+
+- 把 exe **复制**到普通用户目录（如 `%USERPROFILE%\Desktop`）——复制会丢掉标签，最省事；
+- 或用管理员身份执行 `icacls dist\邮箱管理工具.exe /setintegritylevel Medium`。
+
+`build.py` 打包完成后会自动 `icacls` 检查一次，命中就打印这条警告。目录版不受该标签影响
+（低完整性、中完整性启动都实测正常）。
 
 ### 6.1b `PermissionError: [WinError 5] ... _internal\libcrypto-3.dll`（重新打包时）
 

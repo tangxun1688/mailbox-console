@@ -81,9 +81,9 @@ python app.py
 | `ui_util.py` | 49 | `center()` + `CenteredToplevel` 基类 |
 | `start.vbs` | 27 | 无终端启动（**源码方式**；打包后直接双击 exe 即可） |
 | `paths.py` | 82 | 冻结感知的路径：exe 目录 / `_MEIPASS` / 数据目录 / `data.db` / `error.log` |
-| `build.py` | 195 | 打包脚本：目录版 / 单文件 / zip / 自检，自动准备 `.venv-build` |
+| `build.py` | 252 | 打包脚本：目录版 / 单文件 / zip / 自检，自动准备 `.venv-build` |
 | `build.bat` | 14 | 双击打包 |
-| `verify_exe.py` | 129 | 打包后自检：起窗口 → 查 `data.db` / `error.log` → 确认进程退出 |
+| `verify_exe.py` | 137 | 打包后自检：起窗口 → 查 `data.db` / `error.log` → 确认进程退出 |
 | `tools/make_icon.py` | 116 | 纯标准库生成 `app.ico`（7 个尺寸） |
 | `app.ico` | — | 图标：嵌进 exe 资源，同时作为窗口图标 |
 | `data.db` | — | 运行时数据库（**不要提交 git**） |
@@ -326,7 +326,7 @@ python view_db.py --history xxx@hotmail.com   # 令牌变更历史（大小写�
 ## 8. 已知限制 / 风险
 
 - `data.db` 明文凭证，**不要提交 git、不要放共享盘**（仓库已加 `.gitignore` 忽略它和 `dist/`、`build/`）
-- 单文件 exe 启动要解包到 `%TEMP%`：受限权限或杀软环境下会失败，优先用目录版
+- 单文件 exe 启动要解包到 `%TEMP%`：受限权限或杀软环境下会失败，优先用目录版；若构建目录是低完整性（沙箱），产物会带 Low 标签导致双击报错，把 exe 复制到普通用户目录即可（详见 BUILD.md §6.1）
 - 未做代码签名，别人首次运行单文件 exe 可能有 SmartScreen 提示
 - 分组功能未做（`group_name` 字段预留）；只有「全部」+ 搜索
 - 正文是纯文本，窗口内不渲染 HTML（「查看原文」交给系统浏览器）

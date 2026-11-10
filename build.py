@@ -144,7 +144,32 @@ def _build(onefile: bool, args) -> Path:
         print(f"[build] ✗ 没找到产物 {target}")
         raise SystemExit(1)
     print(f"[build] ✓ {target}  ({target.stat().st_size / 1024 / 1024:.1f} MB)")
+    _warn_low_integrity(target)
     return target
+
+
+def _warn_low_integrity(target: Path) -> None:
+    """产物若落在低完整性目录（沙箱/受限），会带上 Low 标签 → 单文件版解包被拒。
+
+    症状：双击后弹 “Could not create temporary directory!”。修复：把 exe 复制到普通
+    用户目录（复制会丢掉标签），或管理员执行 `icacls <exe> /setintegritylevel Medium`。
+    """
+    try:
+        r = subprocess.run(
+            ["icacls", str(target)], capture_output=True, text=True,
+            encoding="gbk", errors="replace", timeout=20,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return
+    out = (r.stdout or "") + (r.stderr or "")
+    if "Low Mandatory" not in out and "低强制" not in out:
+        return
+    print(
+        "[build] ⚠ 产物带 Low 完整性标签（构建目录是低完整性/受限目录）\n"
+        "        目录版不受影响；单文件版双击会报 Could not create temporary directory。\n"
+        "        解决办法：把 exe 复制到普通用户目录（复制会丢掉该标签），\n"
+        "        或用管理员执行 icacls <exe> /setintegritylevel Medium"
+    )
 
 
 def _verify(target: Path, timeout: int) -> bool:
