@@ -1,0 +1,24 @@
+# 运行时数据库：明文密码 / 令牌，绝不入库
+data.db
+data.db-journal
+data.db-wal
+data.db-shm
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+
+# 打包产物
+build/
+dist/
+*.zip
+
+# 运行时日志
+error.log
+*.log
+
+# 编辑器
+.vscode/
+.idea/
