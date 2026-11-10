@@ -11,7 +11,7 @@
 ## 0. 三十秒版
 
 ```bash
-cd G:\AI_All\DSHWork\mailbox-gui
+cd mailbox-gui
 python build.py --zip
 ```
 
@@ -34,7 +34,7 @@ python build.py --zip
 
 | 项 | 要求 |
 |---|---|
-| 解释器 | **必须带 tkinter** 的 CPython。本机用 `C:\Users\Ryan\AppData\Local\Python\pythoncore-3.15-64\python.exe`（3.15.1 / Tk 9.0）。workbuddy 自带的 3.13.12 **没有 tkinter，打出来会启动即崩** |
+| 解释器 | **必须带 tkinter** 的 CPython（本项目在 3.15.1 / Tk 9.0 上验证）。精简发行版常缺 tkinter，打出来会启动即崩；先跑 `python -c "import tkinter"` 确认 |
 | PyInstaller | 6.22.3（`build.py` 会自动装到 `.venv-build\`，见下） |
 | 网络 | 首次装 PyInstaller 需要能访问 PyPI |
 | MSVC | **不需要**（所以 Nuitka 这条路走不通，见 §7） |
@@ -48,7 +48,7 @@ python build.py --zip
 换机器时若 python 不在 PATH，直接写全路径调用即可：
 
 ```bat
-"C:\Users\Ryan\AppData\Local\Python\pythoncore-3.15-64\python.exe" build.py --zip
+python build.py --zip
 ```
 
 ---
@@ -140,12 +140,12 @@ MAILBOX_VERIFY_TEMP=D:\tmp python verify_exe.py   # 指定子进程 TEMP（单�
 |---|---|
 | 源码冒烟：`App()` → 1120×760 | ✓ |
 | 目录版 exe 启动 | ✓ 窗口标题「邮箱管理工具」，生成 28 KB 空库 |
-| 目录版 + 真实 4.7 MB `data.db` | ✓ 正常启动，`accounts = 1010`，无 `error.log` |
+| 目录版 + 真实 4.7 MB `data.db` | ✓ 正常启动并读到真实数据，无 `error.log` |
 | 单文件版 exe（`%TEMP%` 可用时） | ✓ 窗口正常，`data.db` 落在 exe 旁边（不是 `_MEIxxxx` 里） |
 | 单文件版（产物落在低完整性目录，带 Low 标签） | ✗ `Could not create temporary directory!` —— 低完整性进程建不了解包目录，见 §6.1（b） |
 | 同一份单文件 exe 复制到 `%USERPROFILE%` 下再启动 | ✓ 窗口正常、生成 `data.db`（复制会丢掉 Low 标签） |
 
-图标 / 版本信息也验过：exe 属性里 `产品名称 = 邮箱管理工具`、版本 `0.1.0`，任务栏与窗口左上角都是信封图标。
+图标 / 版本信息也验过：exe 属性里 `产品名称 = 邮箱管理工具`、版本 `1.0.0`，任务栏与窗口左上角都是信封图标。
 
 ---
 

@@ -4,7 +4,8 @@
 用法（都在工程根目录跑）：
     python build.py                  # 目录版 → dist/邮箱管理工具/邮箱管理工具.exe（推荐）
     python build.py --onefile        # 单文件 → dist/邮箱管理工具.exe
-    python build.py --both --zip     # 目录版 + 单文件，并把目录版打成 zip
+    python build.py --zip            # 目录版 + 便携 zip（日常）
+    python build.py --zip --verify --zip-only   # 打包 + 自检，最后只留 zip
     python build.py --console        # 保留控制台，启动报错直接看得见
     python build.py --both --verify  # 打完自动起窗口自检（失败返回非 0）
     python build.py --both --verify --verify-timeout 15   # 自检等窗口的秒数
@@ -36,6 +37,7 @@ ROOT = Path(__file__).resolve().parent
 VENV = ROOT / ".venv-build"
 VENV_PY = VENV / "Scripts" / "python.exe"
 DEFAULT_NAME = "邮箱管理工具"
+VERSION = "1.0.0"
 
 VERSION_FILE = """# UTF-8
 VSVersionInfo(
@@ -48,11 +50,11 @@ VSVersionInfo(
       StringTable('080404b0', [
         StringStruct('CompanyName', ''),
         StringStruct('FileDescription', '邮箱管理工具'),
-        StringStruct('FileVersion', '0.1.0'),
+        StringStruct('FileVersion', '{version}'),
         StringStruct('InternalName', 'mailbox-gui'),
         StringStruct('OriginalFilename', '{exe}'),
         StringStruct('ProductName', '邮箱管理工具'),
-        StringStruct('ProductVersion', '0.1.0')])
+        StringStruct('ProductVersion', '{version}')])
     ]),
     VarFileInfo([VarStruct('Translation', [2052, 1200])])
   ]
@@ -102,7 +104,7 @@ def _build(onefile: bool, args) -> Path:
 
     version_file = build_tmp / f"version_info_{'onefile' if onefile else 'onedir'}.txt"
     version_file.write_text(
-        VERSION_FILE.format(exe=args.name + ".exe"), encoding="utf-8"
+        VERSION_FILE.format(exe=args.name + ".exe", version=VERSION), encoding="utf-8"
     )
 
     argv = [
@@ -207,6 +209,8 @@ def main() -> int:
     ap.add_argument("--onefile", action="store_true", help="单文件 exe")
     ap.add_argument("--both", action="store_true", help="目录版 + 单文件都打")
     ap.add_argument("--zip", action="store_true", help="目录版额外打 zip")
+    ap.add_argument("--zip-only", action="store_true",
+                    help="打完 zip 后删掉 dist 里的目录版，只留 zip（需配合 --zip）")
     ap.add_argument("--console", action="store_true", help="保留控制台窗口（排错用）")
     ap.add_argument("--name", default=DEFAULT_NAME, help=f"exe 名，默认 {DEFAULT_NAME}")
     ap.add_argument("--runtime-tmpdir", default=None, help="单文件版解包目录（受限环境用）")
@@ -240,6 +244,15 @@ def main() -> int:
             print("\n[verify] ✗ 自检未通过：" + "、".join(t.name for t in failed))
             return 1
         print("\n[verify] ✓ 全部自检通过")
+
+    if args.zip_only:
+        folder = ROOT / "dist" / args.name
+        if folder.is_dir():
+            shutil.rmtree(folder, ignore_errors=True)
+            if folder.exists():
+                print(f"[build] ⚠ 没能删掉 {folder}（可能有进程占用），请手工删除")
+            else:
+                print(f"[build] 已删除 {folder}，dist 里只留 zip")
 
     print("\n[build] 分发说明：")
     print("  · 把出厂的 exe（或整个目录）拷给另一台机器，首次运行会在它旁边生成空的 data.db。")

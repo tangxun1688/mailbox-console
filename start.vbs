@@ -18,7 +18,7 @@ End If
 
 sh.CurrentDirectory = dir
 
-pyw = "C:\Users\Ryan\AppData\Local\Python\bin\pythonw.exe"
+pyw = sh.ExpandEnvironmentStrings("%LOCALAPPDATA%") & "\Python\bin\pythonw.exe"
 If Not fso.FileExists(pyw) Then
     pyw = "pythonw.exe"
 End If

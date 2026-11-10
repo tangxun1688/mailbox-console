@@ -1,7 +1,7 @@
 # 邮箱管理工具 · mailbox-gui
 
 > **交接文档**。本文面向接手本项目的 AI Agent / 开发者：先读 §0–§3，再按需要查后面各节。
-> 最后更新：2026-11-11（新增「打包成可运行 exe」能力，细节见 [BUILD.md](BUILD.md)）
+> 最后更新：2026-11-11（v1.0.0：便携版打包 + 对外发布，打包细节见 [BUILD.md](BUILD.md)）
 
 ---
 
@@ -9,12 +9,13 @@
 
 | 项 | 值 |
 |---|---|
-| 位置 | 源码 `G:\AI_All\WorkBuddyDefaultDirectory\mailbox-gui`；含 git 的开发副本 `G:\AI_All\DSHWork\mailbox-gui` |
+| 位置 | 本仓库根目录（`mailbox-gui`） |
 | 形态 | Windows 桌面应用，Tkinter + SQLite，**纯标准库，零 pip 依赖**（打包时才用 PyInstaller） |
 | 入口 | 打包后双击 `邮箱管理工具.exe`；源码方式双击 `start.vbs` 或 `python app.py` |
-| 打包 | `python build.py --zip --verify` → `dist\`（目录版 + 便携 zip，打完自动起窗口自检），详见 **[BUILD.md](BUILD.md)** |
-| 代码量 | 13 个 `.py`，约 2 700 行 |
-| 数据 | `data.db`，当前 **1010 个账号 / 1045 条令牌历史 / 约 4.7 MB** |
+| 打包 | `python build.py --zip --verify` → `dist\邮箱管理工具-便携版.zip`（打完自动起窗口自检），详见 **[BUILD.md](BUILD.md)** |
+| 下载 | GitHub **Releases** 里的 `邮箱管理工具-便携版.zip`，解压到任意普通目录，双击 `邮箱管理工具.exe` |
+| 代码量 | 14 个 `.py`，约 3 000 行 |
+| 数据 | `data.db`（本地实测约 4.7 MB，**不入版本库**；首次启动自动建空库） |
 | 状态 | 功能完整可用；无已知阻塞性 bug |
 | 主要风险 | `data.db` 里是**明文密码和令牌**；令牌兑换即轮换，同一账号不能两处同时用 |
 
@@ -32,34 +33,29 @@
 
 ### Python 解释器（踩过坑）
 
-```bash
-# ✅ 用这个（3.15.1，带 tkinter）
-C:\Users\Ryan\AppData\Local\Python\pythoncore-3.15-64\python.exe
-# 或 PATH 里的 python（本机指向 3.15.1）
-
-# ❌ 不要用 workbuddy 内置的 3.13.12，它没有 tkinter
-C:\Users\Ryan\.workbuddy\binaries\python\versions\3.13.12\python.exe
-```
-
-`start.vbs` 里写死了 `C:\Users\Ryan\AppData\Local\Python\bin\pythonw.exe`。换机器必须改这一行。
-
-检查方法：
+要求：**带 tkinter 的 CPython**（本项目在 3.15.1 / Tk 9.0 上开发验证）。
 
 ```bash
-python -c "import tkinter; print('ok')"
+python -c "import tkinter; print('ok')"   # 输出 ok 才行
 ```
+
+> 注意：精简版 Python 发行版（部分内置运行时、嵌入式包）往往**没有 tkinter**，
+> 用它打包会在启动时直接崩溃。
+
+`start.vbs` 用的解释器按顺序找：`%LOCALAPPDATA%\Python\bin\pythonw.exe` →
+PATH 里的 `pythonw.exe`。换机器时若 Python 装在别处，改 `start.vbs` 里那两行即可。
 
 ### 启动
 
 ```bash
-cd G:\AI_All\WorkBuddyDefaultDirectory\mailbox-gui
+cd mailbox-gui
 python app.py
 ```
 
 首次启动自动建库（`store.init_db()`，含幂等迁移 `_migrate()`）。
 
-已经打包成 exe 的话不用装 Python：双击 `dist\邮箱管理工具\邮箱管理工具.exe`（目录版）
-或 `dist\邮箱管理工具.exe`（单文件版）。重新打包见 **[BUILD.md](BUILD.md)**。
+不想装 Python 的话：从 **Releases** 下载 `邮箱管理工具-便携版.zip`，解压到任意普通目录，
+双击 `邮箱管理工具.exe` 即可（首次启动会在它旁边生成空 `data.db`）。自己重新打包见 **[BUILD.md](BUILD.md)**。
 
 > **重要**：改完代码必须关掉旧窗口再开。Python 进程不会热加载，用户多次因为没重启而以为改动没生效。
 
@@ -391,6 +387,7 @@ $PY verify_exe.py 邮箱管理工具.exe      # 单独自检单文件版
 | P3 | 独立令牌同步窗口、过期标色与提醒、90 天到期模型、`source` 区分 |
 | 收尾 | 三个对话框统一居中 + `CenteredToplevel` 基类 |
 | 打包 | PyInstaller 目录版/单文件版、`paths.py` 冻结路径、图标、`error.log`、`--verify` 自检（[BUILD.md](BUILD.md)） |
+| **1.0.0** | 首个对外发布：便携版 zip 作为 Release、版本号写入 exe 属性、`start.vbs` 不再写死用户名 |
 
 被明确否决/移除的功能：按条件选菜单、邮件区重复展示邮箱、自动轮询、验证码自动识别。
 
