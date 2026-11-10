@@ -14,7 +14,7 @@
 | 入口 | 打包后双击 `邮箱管理工具.exe`；源码方式双击 `start.vbs` 或 `python app.py` |
 | 打包 | `python build.py --zip --verify` → `dist\邮箱管理工具-便携版.zip`（打完自动起窗口自检），详见 **[BUILD.md](BUILD.md)** |
 | 仓库 | <https://github.com/tangxun1688/mailbox-console>
-| 下载 | GitHub **Releases** 里的 `邮箱管理工具-便携版.zip`，解压到任意普通目录，双击 `邮箱管理工具.exe` |
+| 下载 | GitHub **Releases** 里的 `mailbox-console-v1.0.0-portable.zip`，解压到任意普通目录，双击 `邮箱管理工具.exe` |
 | 代码量 | 14 个 `.py`，约 3 000 行 |
 | 数据 | `data.db`（本地实测约 4.7 MB，**不入版本库**；首次启动自动建空库） |
 | 状态 | 功能完整可用；无已知阻塞性 bug |
@@ -55,7 +55,7 @@ python app.py
 
 首次启动自动建库（`store.init_db()`，含幂等迁移 `_migrate()`）。
 
-不想装 Python 的话：从 **Releases** 下载 `邮箱管理工具-便携版.zip`，解压到任意普通目录，
+不想装 Python 的话：从 **Releases** 下载 `mailbox-console-v1.0.0-portable.zip`，解压到任意普通目录，
 双击 `邮箱管理工具.exe` 即可（首次启动会在它旁边生成空 `data.db`）。自己重新打包见 **[BUILD.md](BUILD.md)**。
 
 > **重要**：改完代码必须关掉旧窗口再开。Python 进程不会热加载，用户多次因为没重启而以为改动没生效。
