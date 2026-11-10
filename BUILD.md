@@ -1,7 +1,10 @@
 # 打包成可直接运行的 exe（PyInstaller）
 
-> 结论：**PyInstaller 单文件/目录版都能打，本仓库已经把打包需要的改动全部做完并验证过。**
-> 一条命令出成品：`python build.py --both --zip`（或双击 `build.bat`）。
+> 结论：**PyInstaller 目录版 + 便携 zip 已经验证可用，日常就发这个。**
+> 一条命令出成品：`python build.py --zip`（或双击 `build.bat`）。
+>
+> 单文件版（15 MB 一个 exe）仍然支持（`--onefile`），但**默认不再产出**：它每次启动要把运行时解包到
+> `%TEMP%`，启动慢、易被杀软误杀，而且在低完整性目录里会报 `Could not create temporary directory!`（§6.1b）。
 
 ---
 
@@ -9,16 +12,16 @@
 
 ```bash
 cd G:\AI_All\DSHWork\mailbox-gui
-python build.py --both --zip
+python build.py --zip
 ```
 
 产物（`dist\`）：
 
 | 产物 | 形态 | 大小 | 说明 |
 |---|---|---:|---|
-| `dist\邮箱管理工具\邮箱管理工具.exe` | **目录版**（exe + `_internal\`） | exe 3.1 MB，整目录约 32 MB | **推荐**。启动快、不易被杀软误杀 |
-| `dist\邮箱管理工具-便携版.zip` | 目录版打成的 zip | 约 15 MB | 拷贝/上传到别的机器用 |
-| `dist\邮箱管理工具.exe` | **单文件版** | 15.1 MB | 一个 exe 走天下，启动时解包到 `%TEMP%` |
+| `dist\邮箱管理工具\邮箱管理工具.exe` | **目录版**（exe + `_internal\`） | exe 3.1 MB，整目录约 32 MB | 解压/拷贝后直接双击，**推荐** |
+| `dist\邮箱管理工具-便携版.zip` | 目录版打成的 zip | 约 15 MB | 分发包：拷给别人，解压即用 |
+| `dist\邮箱管理工具.exe` | 单文件版（**仅 `--onefile` 时产出**） | 15.1 MB | 一个文件走天下，但启动要解包到 `%TEMP%`，不推荐 |
 
 两个版本都不需要在目标机器装 Python、也不需要装 VC++ 运行库（`VCRUNTIME140.dll` 已打进 `_internal\`）。
 
@@ -45,7 +48,7 @@ python build.py --both --zip
 换机器时若 python 不在 PATH，直接写全路径调用即可：
 
 ```bat
-"C:\Users\Ryan\AppData\Local\Python\pythoncore-3.15-64\python.exe" build.py --both --zip
+"C:\Users\Ryan\AppData\Local\Python\pythoncore-3.15-64\python.exe" build.py --zip
 ```
 
 ---
@@ -55,13 +58,14 @@ python build.py --both --zip
 ```bash
 python build.py                 # 目录版（默认）→ dist\邮箱管理工具\
 python build.py --onefile       # 单文件      → dist\邮箱管理工具.exe
-python build.py --both --zip    # 两种都要，并把目录版打成 zip
+python build.py --zip           # 目录版 + 便携 zip（日常就这个）
+python build.py --both --zip    # 额外再出一个单文件版
 python build.py --console       # 保留黑色控制台窗口，启动报错直接看得见（排错用）
 python build.py --name Foo      # 换 exe 名字
 python build.py --no-clean      # 复用 build\ 缓存，第二次打包更快
 python build.py --runtime-tmpdir D:\temp   # 单文件版解包目录（受限环境用，见 §6.1）
-python build.py --both --verify  # 打完后自动起窗口自检，两种产物都过才返回 0
-python build.py --both --verify --verify-timeout 15   # 自检等窗口的秒数（默认 30）
+python build.py --zip --verify   # 打完后自动起窗口自检，通过才返回 0
+python build.py --zip --verify --verify-timeout 15    # 自检等窗口的秒数（默认 30）
 ```
 
 `build.bat` 只是 `chcp 65001` + `python build.py %*` + 失败 `pause` 的壳，双击即可。
@@ -123,7 +127,7 @@ copy data.db dist\邮箱管理工具\data.db
 检查 exe 旁边是否生成 `data.db`、是否出现 `error.log`，最后 `taskkill /T /F` 收尾。
 
 ```bash
-python build.py --both --zip
+python build.py --zip
 python verify_exe.py                          # 目录版
 python verify_exe.py 邮箱管理工具.exe         # 单文件版
 python verify_exe.py --timeout 10             # 改等窗口的秒数
@@ -148,7 +152,7 @@ MAILBOX_VERIFY_TEMP=D:\tmp python verify_exe.py   # 指定子进程 TEMP（单�
 ### 一条命令连打包带自检
 
 ```bat
-python build.py --both --verify --zip
+python build.py --zip --verify
 ```
 
 目录版和单文件版都会真的启动一次、确认窗口起来、确认 `data.db` 落在 exe 旁边、
@@ -244,7 +248,7 @@ Windows 会缓存图标。改完 `app.ico` 重新打包后，换个文件名或�
 
 ```bash
 python tools/make_icon.py        # 覆盖 app.ico，纯标准库，不需要 Pillow
-python build.py --both          # 重新打包把新图标嵌进 exe
+python build.py --zip           # 重新打包把新图标嵌进 exe
 ```
 
 `app.ico` 含 16/24/32/48/64/128/256 七个尺寸，PowerShell/资源管理器/任务栏都能取到合适的一档。

@@ -12,7 +12,7 @@
 | 位置 | 源码 `G:\AI_All\WorkBuddyDefaultDirectory\mailbox-gui`；含 git 的开发副本 `G:\AI_All\DSHWork\mailbox-gui` |
 | 形态 | Windows 桌面应用，Tkinter + SQLite，**纯标准库，零 pip 依赖**（打包时才用 PyInstaller） |
 | 入口 | 打包后双击 `邮箱管理工具.exe`；源码方式双击 `start.vbs` 或 `python app.py` |
-| 打包 | `python build.py --both --verify --zip` → `dist\`（打完自动起窗口自检），详见 **[BUILD.md](BUILD.md)** |
+| 打包 | `python build.py --zip --verify` → `dist\`（目录版 + 便携 zip，打完自动起窗口自检），详见 **[BUILD.md](BUILD.md)** |
 | 代码量 | 13 个 `.py`，约 2 700 行 |
 | 数据 | `data.db`，当前 **1010 个账号 / 1045 条令牌历史 / 约 4.7 MB** |
 | 状态 | 功能完整可用；无已知阻塞性 bug |
@@ -364,7 +364,8 @@ w.destroy()
 "
 
 # 4) 打包 + 打包后自检（会短暂起窗口再关掉）
-$PY build.py --both --verify --zip      # 打包 + 自检（推荐）
+$PY build.py --zip --verify             # 打包便携版 + 自检（推荐）
+$PY build.py --onefile                  # 可选：单文件 exe（15 MB，需放在普通目录）
 $PY verify_exe.py                       # 单独自检目录版
 $PY verify_exe.py 邮箱管理工具.exe      # 单独自检单文件版
 ```
